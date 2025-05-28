@@ -1,0 +1,39 @@
+submitit==1.5.1
+pre-commit==3.6.1
+black==22.6.0
+ipykernel==6.29.2
+torchdiffeq==0.2.3
+scikit-learn==1.4.0
+pytorch-lightning==1.8.5.post0
+hydra-core==1.2.0
+hydra-submitit-launcher==1.2.0
+hydra_colorlog==1.2.0
+click==8.1.7
+wandb
+geoopt==0.5.0
+biopython==1.83
+pyevtk==1.6.0
+ipympl==0.9.3
+smact==2.2.1
+pytest==8.0.0
+python-dotenv==1.0.1
+p-tqdm==1.3.3
+pyshtools==4.10.4
+pyxtal==0.6.1
+chemparse==0.1.3
+einops==0.7.0
+ratelimit==2.2.1
+matbench-discovery==1.0.0
+pymatviz==0.8.1
+chgnet==0.3.1
+toolz==0.12.1
+POT==0.9.3
+e3nn==0.5.1
+mp-api==0.39.5
+matminer
+-e remote/cdvae
+-e remote/DiffCSP-official
+-e remote/riemannian-fm
+-e .
+--find-links https://data.pyg.org/whl/torch-2.1.0+cu118.html
+pyg_lib
