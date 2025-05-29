@@ -1,6 +1,6 @@
 dataset_name: supercon
 dim_coords: 3
-root_path: ${oc.env:PROJECT_ROOT}/data/carbon_24
+root_path: ${oc.env:PROJECT_ROOT}/data/supercon
 prop: Tc_supercon
 num_targets: 1
 # prop: scaled_lattice
