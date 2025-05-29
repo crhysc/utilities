@@ -1,21 +1,21 @@
 #!/usr/bin/env python
 """
-supercon_preprocess.py
-
-Create CSV splits (train / val / test) for model benchmarks that are
+flowmm_dataset_builder.py  – Python 3.9 compatible
 
 Example
 -------
-python supercon_preprocess.py \
+python flowmm_dataset_builder.py \
     --dataset dft_3d \
     --id-key jid \
     --target Tc_supercon \
     --train-ratio 0.8 --val-ratio 0.1 --test-ratio 0.1 \
-    --seed 123 \
-    --max-size 1000
+    --seed 123 --max-size 1000
 """
+from __future__ import annotations
+
 import argparse, random, json, hashlib
 from pathlib import Path
+from typing import Optional, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -28,7 +28,7 @@ from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
 
 # ---------- helpers ----------------------------------------------------------
-def canonicalise(pmg_struct: Structure, symprec: float = 0.1):
+def canonicalise(pmg_struct: Structure, symprec: float = 0.1) -> Tuple[str, int, int]:
     """Return (cif_conv, spg_num, spg_num_conv).  Never raises."""
     try:
         sga = SpacegroupAnalyzer(pmg_struct, symprec=symprec)
@@ -44,23 +44,19 @@ def make_dataframe(
     dataset_name: str,
     id_key: str,
     target_key: str,
-    max_size: Optional[int] = None,
-):
+    max_size: Optional[int],
+) -> pd.DataFrame:
     """Download JARVIS records, keep only those with a valid target.
 
     *Order* of appearance is preserved so that a subsequent shuffle with
     the same seed matches the reference implementation.
     """
-    records = []
+    records: List[dict] = []
     for item in tqdm(jarvis_data(dataset_name), desc="Downloading/JARVIS"):
         # ----- property filter -------------------------------------------------
         target_val = item.get(target_key, "na")
-        if target_key == "Tc_supercon":
-            if target_val == "na" or target_val is None:
-                continue
-        else:
-            if target_val == "na" or target_val is None:
-                continue
+        if target_val in ("na", None):
+            continue
 
         # stop once we have collected the requested number of structures
         if max_size is not None and len(records) >= max_size:
@@ -92,7 +88,13 @@ def make_dataframe(
     return pd.DataFrame(records)
 
 
-def split_indices(n, train_ratio, val_ratio, test_ratio, seed):
+def split_indices(
+    n: int,
+    train_ratio: float,
+    val_ratio: float,
+    test_ratio: float,
+    seed: int,
+) -> Tuple[List[int], List[int], List[int]]:
     """Bit-wise identical to the reference get_id_train_val_test()."""
     indices = list(range(n))
     random.seed(seed)
@@ -111,8 +113,8 @@ def split_indices(n, train_ratio, val_ratio, test_ratio, seed):
     return id_train, id_val, id_test
 
 
-def sha(lst):
-    """SHA-256 of a list of material_ids, stable across python versions."""
+def sha(lst) -> str:
+    """SHA-256 of a list/Series of material_ids, stable across python versions."""
     m = hashlib.sha256()
     for x in lst:
         m.update(str(x).encode())
@@ -121,7 +123,7 @@ def sha(lst):
 
 
 # ---------- CLI --------------------------------------------------------------
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dataset", required=True,
                     help="JARVIS dataset name, e.g. dft_3d, dft_2d, c2db")
