@@ -1,13 +1,11 @@
 #!/usr/bin/env python
 """
-flowmm_dataset_builder.py  – Python 3.9 compatible
+supercon_preprocess.py  –  Python 3.9 compatible
 
 Example
 -------
-python flowmm_dataset_builder.py \
-    --dataset dft_3d \
-    --id-key jid \
-    --target Tc_supercon \
+python supercon_preprocess.py \
+    --dataset dft_3d --id-key jid --target Tc_supercon \
     --train-ratio 0.8 --val-ratio 0.1 --test-ratio 0.1 \
     --seed 123 --max-size 1000
 """
@@ -36,7 +34,7 @@ def canonicalise(pmg_struct: Structure, symprec: float = 0.1) -> Tuple[str, int,
         conv = sga.get_conventional_standard_structure()
         spg_conv = SpacegroupAnalyzer(conv, symprec=symprec).get_space_group_number()
         return conv.to(fmt="cif"), spg_num, spg_conv
-    except Exception:  # symmetry failures are fine – fall back to blanks
+    except Exception:
         return "", -1, -1
 
 
@@ -46,29 +44,22 @@ def make_dataframe(
     target_key: str,
     max_size: Optional[int],
 ) -> pd.DataFrame:
-    """Download JARVIS records, keep only those with a valid target.
+    """Download JARVIS records and keep those with a defined target.
 
-    *Order* of appearance is preserved so that a subsequent shuffle with
-    the same seed matches the reference implementation.
+    If --max-size is given, we **stop as soon as we have exactly that many
+    valid structures** (i.e. after filtering out `"na"` / `None` targets).
     """
     records: List[dict] = []
     for item in tqdm(jarvis_data(dataset_name), desc="Downloading/JARVIS"):
-        # ----- property filter -------------------------------------------------
         target_val = item.get(target_key, "na")
         if target_val in ("na", None):
-            continue
-
-        # stop once we have collected the requested number of structures
-        if max_size is not None and len(records) >= max_size:
-            break
+            continue  # skip invalid target
 
         pmg = Atoms.from_dict(item["atoms"]).pymatgen_converter()
-
         try:
             cif_raw = pmg.to(fmt="cif")
-        except Exception as exc:  # even raw CIF failed – skip (matches quick script)
-            print(f"Skipping {item[id_key]} (bad CIF): {exc}")
-            continue
+        except Exception:
+            continue  # bad CIF – behave like the reference script
 
         cif_conv, spg, spg_conv = canonicalise(pmg)
 
@@ -85,6 +76,10 @@ def make_dataframe(
             }
         )
 
+        # --- stop exactly at the requested cap -------------------------------
+        if max_size is not None and len(records) == max_size:
+            break
+
     return pd.DataFrame(records)
 
 
@@ -95,7 +90,7 @@ def split_indices(
     test_ratio: float,
     seed: int,
 ) -> Tuple[List[int], List[int], List[int]]:
-    """Bit-wise identical to the reference get_id_train_val_test()."""
+    """Replicates the reference get_id_train_val_test()."""
     indices = list(range(n))
     random.seed(seed)
     random.shuffle(indices)
@@ -114,7 +109,6 @@ def split_indices(
 
 
 def sha(lst) -> str:
-    """SHA-256 of a list/Series of material_ids, stable across python versions."""
     m = hashlib.sha256()
     for x in lst:
         m.update(str(x).encode())
@@ -125,37 +119,31 @@ def sha(lst) -> str:
 # ---------- CLI --------------------------------------------------------------
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dataset", required=True,
-                    help="JARVIS dataset name, e.g. dft_3d, dft_2d, c2db")
-    ap.add_argument("--id-key", default="jid",
-                    help="Field in the original JSON to use as material_id")
-    ap.add_argument("--target", dest="target_key", default="Tc_supercon",
-                    help="Scalar property column (kept for bookkeeping)")
+    ap.add_argument("--dataset", required=True)
+    ap.add_argument("--id-key", default="jid")
+    ap.add_argument("--target", dest="target_key", default="Tc_supercon")
     ap.add_argument("--train-ratio", type=float, default=0.8)
     ap.add_argument("--val-ratio", type=float, default=0.1)
     ap.add_argument("--test-ratio", type=float, default=0.1)
     ap.add_argument("--seed", type=int, default=123)
     ap.add_argument("--max-size", type=int, default=None,
-                    help="Optional cap on the number of *valid* structures")
+                    help="Cap on the number of *valid* structures")
     args = ap.parse_args()
 
-    assert abs(
-        args.train_ratio + args.val_ratio + args.test_ratio - 1
-    ) < 1e-6, "splits must sum to 1"
+    assert abs(args.train_ratio + args.val_ratio + args.test_ratio - 1) < 1e-6
 
-    # -------------------------------------------------------------------------
     df = make_dataframe(args.dataset, args.id_key, args.target_key, args.max_size)
+    print(f"Collected {len(df)} records (max-size={args.max_size})")
 
     id_train, id_val, id_test = split_indices(
         len(df), args.train_ratio, args.val_ratio, args.test_ratio, args.seed
     )
 
-    Path(".").mkdir(parents=True, exist_ok=True)
+    Path(".").mkdir(exist_ok=True)
     df.iloc[id_train].to_csv("train.csv", index=False)
     df.iloc[id_val].to_csv("val.csv", index=False)
     df.iloc[id_test].to_csv("test.csv", index=False)
 
-    # quick sanity: print hashes so you can compare with quick script
     print("✓ Wrote train.csv, val.csv, test.csv")
     print(f"hashes  train:{sha(df.iloc[id_train]['material_id'])} "
           f"val:{sha(df.iloc[id_val]['material_id'])} "
