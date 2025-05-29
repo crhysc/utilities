@@ -44,7 +44,7 @@ def make_dataframe(
     dataset_name: str,
     id_key: str,
     target_key: str,
-    max_size: int | None,
+    max_size: Optional[int] = None,
 ):
     """Download JARVIS records, keep only those with a valid target.
 
