@@ -2,7 +2,7 @@
 """
 flowmm_dataset_builder.py
 
-Create FlowMM-ready CSV splits (train / val / test).
+Create CSV splits (train / val / test) for model benchmarks.
 
 Dependencies
 ------------
@@ -10,7 +10,7 @@ pip install "jarvis-tools>=2024.5" "pymatgen>=2024.1" pandas numpy tqdm
 
 Usage
 -----
-python flowmm_dataset_builder.py \
+python supercon_preprocess.py \
     --dataset dft_3d \
     --id-key jid \
     --target Tc_supercon \
