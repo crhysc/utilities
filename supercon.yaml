@@ -24,7 +24,7 @@ teacher_forcing_max_epoch: 1
 
 
 datamodule:
-  _target_: cdvae.pl_data.datamodule.CrystDataModule
+  _target_: diffcsp.pl_data.dataset.CrystDataset
 
   datasets:
     train:
